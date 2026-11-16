@@ -119,25 +119,9 @@ python -m venv .venv
 .\.venv\Scripts\python.exe -m pytest tests
 ```
 
-## How it works
+## Performance
 
-```mermaid
-flowchart LR
-    F["CSV · JSON · Excel · Parquet"] --> D[("DuckDB<br/>in-memory table")]
-    UI["Browser UI<br/>shelves · filters · stats forms"] -- "JSON request" --> API["FastAPI"]
-    API -- "SQL built from shelves" --> D
-    API -- "pandas" --> ST["scipy · statsmodels"]
-    D --> API
-    ST --> API
-    API -- "aggregated rows / result blocks" --> UI
-    UI --> V["Vega-Lite charts"]
-```
-
-- The UI never receives raw data for big tables: each chart sends its **shelf spec**, the backend turns it into SQL (aggregation, histogram bins, box-plot quartiles) and returns only the result.
-- Every statistical analysis **declares its own variable slots and options**, and the form on the Statistics tab is generated from that declaration. Adding an analysis is one function plus one registry entry in `app/stats.py` — no frontend changes.
-- The frontend has **no build step** (plain ES modules; Vega-Lite is vendored, so it works offline).
-
-**Performance** (3 million rows, 250 MB CSV, on a work laptop): load ≈ 6–10 s · aggregated chart 0.02–0.6 s · ANOVA ≈ 1 s · linear regression with a 10-level factor ≈ 8 s.
+Tested on 3 million rows (250 MB CSV): load ≈ 6–10 s · aggregated chart 0.02–0.6 s · ANOVA ≈ 1 s · linear regression with a 10-level factor ≈ 8 s.
 
 ## Project layout
 
