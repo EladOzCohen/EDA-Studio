@@ -197,7 +197,7 @@ function buildSpec(snap, box) {
   const data = ctx.rows;
   const spec = facet
     ? { data: { values: data }, facet, spec: { ...inner, width: cell.w, height: cell.h }, resolve: { scale: { x: 'shared', y: 'shared' } } }
-    : { data: { values: data }, ...inner, width: Math.max(160, box.w - (color ? 180 : 80)), height: Math.max(120, box.h - 70), autosize: { type: 'fit', contains: 'padding' } };
+    : { data: { values: data }, ...inner, width: Math.max(160, box.w), height: Math.max(120, box.h), autosize: { type: 'fit', contains: 'padding' } };
   return { spec, notes };
 }
 
@@ -227,14 +227,17 @@ function buildBox(resp, ctx, color, facet, cell, box, notes) {
   ];
   const spec = facet
     ? { data: { values: rows }, facet, spec: { layer: layers, width: cell.w, height: cell.h } }
-    : { data: { values: rows }, layer: layers, width: Math.max(160, box.w - (color ? 180 : 80)), height: Math.max(120, box.h - 70), autosize: { type: 'fit', contains: 'padding' } };
+    : { data: { values: rows }, layer: layers, width: Math.max(160, box.w), height: Math.max(120, box.h), autosize: { type: 'fit', contains: 'padding' } };
   notes.push('Box = Q1–Q3, line = median, whiskers = 1.5×IQR');
   return { spec, notes };
 }
+
+// Keep a reference: a MediaQueryList with no strong reference can be garbage-collected together with its listener.
+const darkQuery = matchMedia('(prefers-color-scheme: dark)');
 
 export function initChart() {
   on('shelves-changed', () => scheduleChart(S.chart));
   on('filters-changed', () => S.tab === 'explore' && refreshAll());
   on('theme-changed', () => S.tab === 'explore' && redrawAll());
-  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => S.tab === 'explore' && redrawAll());
+  darkQuery.addEventListener('change', () => (S.tab === 'explore' ? redrawAll() : null));
 }

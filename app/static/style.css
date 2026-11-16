@@ -183,6 +183,7 @@ body[data-tab="explore"] #paletteBox { display: block; }
 .stat-table tbody tr:last-child td { border-bottom: 1.5px solid var(--ink); }
 .stat-table tbody tr:hover td { background: var(--surface-2); }
 .stat-table .l { text-align: left; } .stat-table .r { text-align: right; padding-left: 14px; padding-right: 0; }
+.stat-table th.l:not(:first-child), .stat-table td.l:not(:first-child) { padding-left: 16px; }
 .stat-table td.sig { font-weight: 700; }
 .stat-table td.warn { color: var(--warn); }
 .tnote { margin: 6px 0 0; color: var(--muted); font-size: 12px; }

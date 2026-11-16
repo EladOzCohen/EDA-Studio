@@ -1,5 +1,6 @@
-# Builds a portable folder (no installer / no admin rights needed): dist\EDAStudio\EDAStudio.exe
-# Copy the whole dist\EDAStudio folder anywhere (USB stick, network share) and run the exe.
+# Builds a portable folder (no installer / no admin rights needed): portable\EDAStudio\EDAStudio.exe
+# Copy the whole portable\EDAStudio folder anywhere (USB stick, network share) and run the exe.
+# Close any running EDAStudio.exe first, or Windows won't let the build replace its files.
 Set-Location $PSScriptRoot
 # PyInstaller writes progress to stderr; don't let PowerShell treat that as a failure.
 $ErrorActionPreference = "Continue"
@@ -13,10 +14,10 @@ foreach ($pat in "ffi*.dll", "libssl*.dll", "libcrypto*.dll", "sqlite3.dll", "li
     Get-ChildItem "$base\Library\bin\$pat" -ErrorAction SilentlyContinue | ForEach-Object { $extra += "--add-binary"; $extra += "$($_.FullName);." }
 }
 
-& $py -m PyInstaller --noconfirm --clean --onedir --windowed --name EDAStudio `
+& $py -m PyInstaller --noconfirm --clean --onedir --windowed --name EDAStudio --distpath portable `
     --add-data "app\static;app\static" --add-data "sample_data;sample_data" `
     --collect-submodules uvicorn --collect-submodules statsmodels --collect-all webview `
     --exclude-module matplotlib --exclude-module IPython --exclude-module notebook --exclude-module pytest `
     @extra run.py
 if ($LASTEXITCODE -ne 0) { Write-Error "PyInstaller failed ($LASTEXITCODE)"; exit $LASTEXITCODE }
-Write-Host "Done: dist\EDAStudio\EDAStudio.exe"
+Write-Host "Done: portable\EDAStudio\EDAStudio.exe"

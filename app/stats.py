@@ -180,7 +180,7 @@ def run_descriptives(store, slots, o, filters):
 
 
 def _means_plot(rows, title_y, group_title):
-    return dict(data=dict(values=rows), encoding=dict(x=dict(field="group", type="nominal", title=group_title, axis=dict(labelAngle=0))),
+    return dict(width=320, height=260, data=dict(values=rows), encoding=dict(x=dict(field="group", type="nominal", title=group_title, axis=dict(labelAngle=0))),
                 layer=[dict(mark=dict(type="errorbar", ticks=dict(size=12)), encoding=dict(
                     y=dict(field="lo", type="quantitative", title=title_y, scale=dict(zero=False)), y2=dict(field="hi"))),
                     dict(mark=dict(type="point", filled=True, size=70), encoding=dict(
