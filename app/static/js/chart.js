@@ -1,82 +1,92 @@
-// Explore tab: ask the backend for aggregated data, then draw it with Vega-Lite.
-import { S, RECORDS, h, clear, $, api, on, colOf, pillLabel, isAggPill, pal, vegaConfig, isDark, fmtInt } from './core.js';
+// Per-chart rendering: ask the backend for aggregated data, then draw it with Vega-Lite.
+import { S, RECORDS, h, clear, api, on, colOf, pillLabel, isAggPill, pal, vegaConfig, isDark, fmtInt } from './core.js';
 
 const TIMEUNIT = { year: 'utcyear', quarter: 'utcyearquarter', month: 'utcyearmonth', week: 'utcyearmonthdate', day: 'utcyearmonthdate', hour: 'utcyearmonthdatehours', minute: 'utcyearmonthdatehoursminutes' };
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-let seq = 0, last = null, timer = null;
+const parts = c => {
+  const card = document.querySelector(`.card[data-id="${c.id}"]`);
+  return card ? { card, body: card.querySelector('.card-body'), info: card.querySelector('.card-info') } : null;
+};
 
-export function scheduleChart() {
-  clearTimeout(timer);
-  timer = setTimeout(refreshChart, 120);
+export function scheduleChart(c) {
+  if (!c) return;
+  clearTimeout(c._timer);
+  c._timer = setTimeout(() => refreshChart(c), 120);
+}
+export const refreshAll = () => S.charts.forEach(scheduleChart);
+export const redrawAll = () => S.charts.forEach(drawChart);
+
+function message(el, title, text, cls = '') {
+  clear(el).append(h('div', { class: `empty ${cls}` }, h('div', { class: 'big' }, title), text ? h('div', {}, text) : null));
 }
 
-export async function refreshChart() {
-  const my = ++seq;
-  const body = $('#chartBody');
-  const shelves = Object.fromEntries(Object.entries(S.shelves).filter(([, v]) => v));
+export async function refreshChart(c) {
+  const p = parts(c);
+  if (!p) return;
+  const my = c._seq = (c._seq || 0) + 1;
+  const shelves = Object.fromEntries(Object.entries(c.shelves).filter(([, v]) => v));
   if (!S.meta || !Object.keys(shelves).length) {
-    last = null;
-    clear(body).append(h('div', { class: 'empty' }, h('div', { class: 'big' }, 'Drag fields onto the shelves'),
-      h('div', {}, 'Dimensions (Aa, ◷) usually go on X, measures (#) on Y. Double-click a field to place it automatically.')));
-    $('#chartInfo').textContent = '';
+    c._resp = null; c._view = null;
+    p.info.textContent = '';
+    message(p.body, 'Empty chart', 'Drag fields onto the shelves above, or drop them right here. Double-click a field to place it automatically.');
     return;
   }
-  $('#chartInfo').textContent = 'Loading…';
+  p.info.textContent = 'Loading…';
   try {
-    const resp = await api('/api/chart', { mark: S.mark, shelves, filters: S.filters, options: S.options });
-    if (my !== seq) return;
-    last = { resp, mark: S.mark, shelves: JSON.parse(JSON.stringify(S.shelves)), options: { ...S.options } };
-    draw();
+    const resp = await api('/api/chart', { mark: c.mark, shelves, filters: S.filters, options: c.options });
+    if (my !== c._seq) return;
+    c._resp = { resp, mark: c.mark, shelves: JSON.parse(JSON.stringify(c.shelves)), options: { ...c.options } };
+    drawChart(c);
   } catch (e) {
-    if (my !== seq) return;
-    last = null;
-    $('#chartInfo').textContent = '';
-    clear(body).append(h('div', { class: 'empty error' }, h('div', { class: 'big' }, 'Can’t draw this yet'), h('div', {}, e.message)));
+    if (my !== c._seq) return;
+    c._resp = null; c._view = null;
+    p.info.textContent = '';
+    message(p.body, 'Can’t draw this yet', e.message, 'error');
   }
 }
 
-function info(resp, notes) {
+function infoText(snap, notes) {
+  const { resp, mark } = snap;
   const i = resp.info || {};
-  const parts = [];
-  if (i.sampled) parts.push(`Showing a random sample of ${fmtInt(i.shown)} of ${fmtInt(i.total)} points`);
-  else if (i.aggregated === false) parts.push(`${fmtInt(i.shown)} points`);
-  else parts.push(`${fmtInt(resp.rows.length)} ${S.mark === 'box' ? 'groups' : 'marks'}`);
-  if (i.truncated) parts.push('result truncated at 50,000 groups — add a filter or a coarser field');
-  if (i.outliers_truncated) parts.push('outliers truncated');
-  return [...parts, ...notes].join(' · ');
+  const out = [];
+  if (i.sampled) out.push(`Random sample: ${fmtInt(i.shown)} of ${fmtInt(i.total)} points`);
+  else if (i.aggregated === false) out.push(`${fmtInt(i.shown)} points`);
+  else out.push(`${fmtInt(resp.rows.length)} ${mark === 'box' ? 'groups' : 'marks'}`);
+  if (i.truncated) out.push('truncated at 50,000 groups');
+  if (i.outliers_truncated) out.push('outliers truncated');
+  return [...out, ...notes].join(' · ');
 }
 
-export function draw() {
-  if (!last) return;
-  const body = $('#chartBody');
-  const w = Math.max(320, body.clientWidth - 8), hgt = Math.max(260, body.clientHeight - 8);
+export function drawChart(c) {
+  const snap = c._resp, p = parts(c);
+  if (!snap || !p) return;
+  const w = Math.max(240, p.body.clientWidth - 8), hgt = Math.max(160, p.body.clientHeight - 8);
+  if (p.body.clientWidth < 10) return;   // hidden tab: will redraw when shown
   let built;
-  try { built = buildSpec(last, { w, h: hgt }); } catch (e) {
-    clear(body).append(h('div', { class: 'empty error' }, h('div', { class: 'big' }, 'Can’t draw this yet'), h('div', {}, e.message)));
-    return;
-  }
-  $('#chartInfo').textContent = info(last.resp, built.notes);
-  if (!built.spec) { clear(body).append(h('div', { class: 'empty' }, built.message)); return; }
-  clear(body);
+  try { built = buildSpec(snap, { w, h: hgt }); } catch (e) { message(p.body, 'Can’t draw this yet', e.message, 'error'); p.info.textContent = ''; return; }
+  p.info.textContent = infoText(snap, built.notes);
+  p.info.title = p.info.textContent;
+  if (!built.spec) { c._view = null; message(p.body, 'Almost there', built.message); return; }
+  clear(p.body);
   const host = h('div', { class: 'vega-host' });
-  body.append(host);
+  p.body.append(host);
   window.vegaEmbed(host, built.spec, {
-    mode: 'vega-lite', actions: { export: true, source: false, compiled: false, editor: false },
-    config: vegaConfig(), renderer: last.resp.rows.length > 3000 ? 'canvas' : 'svg', tooltip: { theme: isDark() ? 'dark' : 'light' },
-  }).catch(err => { clear(body).append(h('div', { class: 'empty error' }, h('div', { class: 'big' }, 'Render error'), h('div', {}, String(err.message || err)))); });
+    mode: 'vega-lite', actions: false, config: vegaConfig(), renderer: snap.resp.rows.length > 3000 ? 'canvas' : 'svg', tooltip: { theme: isDark() ? 'dark' : 'light' },
+  }).then(r => { c._view = r.view; })
+    .catch(err => message(p.body, 'Render error', String(err.message || err), 'error'));
 }
 
 // ---------------------------------------------------------------- spec building
 
 const numFmt = rows => {
   const m = Math.max(0, ...rows.map(r => Math.abs(+r) || 0));
-  return m >= 10000 ? '~s' : ',~g';
+  return m >= 10000 ? '~s' : ',.6~g';
 };
 
 function shelfEnc(key, pill, ctx, extra = {}) {
-  const { rows, st } = ctx;
+  const { rows } = ctx;
   const title = pillLabel(pill);
   const col = pill.field === RECORDS ? { kind: 'numeric' } : colOf(pill.field);
   if (isAggPill(pill) || pill.role === 'measure') {
@@ -117,40 +127,43 @@ function colorEnc(ctx, notes) {
   const e = shelfEnc('color', p, ctx);
   if (e.type === 'quantitative') { e.scale = { range: P.seq }; e.legend = { gradientLength: 140 }; return e; }
   const dom = [...new Set(ctx.rows.map(r => r.color))].filter(v => v !== null).sort((a, b) => (a > b ? 1 : a < b ? -1 : 0));
-  if (dom.length > 8) notes.push(`${dom.length} color groups — colors repeat after 8; filter or group fewer categories`);
+  if (dom.length > 8) notes.push(`${dom.length} color groups — colors repeat after 8`);
   e.scale = { domain: dom, range: P.cat };
   return e;
 }
 
 function facetDef(ctx) {
   const f = {};
-  if (ctx.shelves.col) f.column = { ...shelfEnc('col', ctx.shelves.col, ctx), header: { labelOrient: 'top', titleOrient: 'top' } };
-  if (ctx.shelves.row) f.row = { ...shelfEnc('row', ctx.shelves.row, ctx), header: { labelOrient: 'left', titleOrient: 'left' } };
+  for (const [key, label] of [['col', 'Facet columns'], ['row', 'Facet rows']]) {
+    const p = ctx.shelves[key];
+    if (!p) continue;
+    if (isAggPill(p) || p.role === 'measure') throw new Error(`${label} must be a dimension (Aa / ◷), but “${pillLabel(p)}” is a measure. Click the pill and choose “Dimension”, or move it to Y.`);
+    f[key === 'col' ? 'column' : 'row'] = { ...shelfEnc(key, p, ctx), header: key === 'col' ? { labelOrient: 'top', titleOrient: 'top' } : { labelOrient: 'left', titleOrient: 'left' } };
+  }
   return Object.keys(f).length ? f : null;
 }
 
 function buildSpec(snap, box) {
-  const { resp, mark, shelves } = snap;
+  const { resp, mark, shelves, options } = snap;
   const notes = [];
-  const ctx = { mark, shelves, st: snap, rows: prepRows(resp.rows, shelves) };
+  const ctx = { mark, shelves, rows: prepRows(resp.rows, shelves) };
   const P = pal();
   const facet = facetDef(ctx);
   const nCol = shelves.col ? new Set(ctx.rows.map(r => r.col)).size : 1;
   const nRow = shelves.row ? new Set(ctx.rows.map(r => r.row)).size : 1;
-  const cell = {
-    w: Math.max(150, Math.floor((box.w - 120) / nCol) - 20),
-    h: Math.max(130, Math.floor((box.h - 70) / nRow) - 30),
-  };
-  let inner, data = ctx.rows;
+  const cell = { w: Math.max(120, Math.floor((box.w - 110) / nCol) - 16), h: Math.max(110, Math.floor((box.h - 60) / nRow) - 26) };
   const color = colorEnc(ctx, notes);
-  const legendShown = !!color;
+  let inner;
 
+  if (['bar', 'line', 'area'].includes(mark) && !['x', 'y'].some(k => shelves[k] && (isAggPill(shelves[k]) || shelves[k].role === 'measure'))) {
+    return { notes, message: 'Add a measure (#) to the X or Y axis — or use “Number of Records” for a simple count.' };
+  }
   if (mark === 'hist') {
+    if (resp.info.empty) return { notes, message: 'No data' };
     const vf = resp.info.value_field;
     inner = { mark: { type: 'bar', cornerRadiusEnd: 2, stroke: P.surface, strokeWidth: 1 },
-      encoding: { x: { field: 'bin_start', type: 'quantitative', bin: 'binned', title: vf, axis: { format: ',~g' } }, x2: { field: 'bin_end' },
+      encoding: { x: { field: 'bin_start', type: 'quantitative', bin: 'binned', title: vf, axis: { format: ',.6~g' } }, x2: { field: 'bin_end' },
         y: { field: 'count', type: 'quantitative', title: 'Count', axis: { format: '~s' } }, ...(color ? { color } : {}) } };
-    if (resp.info.empty) return { notes, message: 'No data' };
   } else if (mark === 'box') {
     return buildBox(resp, ctx, color, facet, cell, box, notes);
   } else {
@@ -159,10 +172,9 @@ function buildSpec(snap, box) {
     const enc = { ...(x ? { x } : {}), ...(y ? { y } : {}) };
     if (color) enc.color = color;
     const nomX = x && x.type !== 'quantitative', nomY = y && y.type !== 'quantitative';
-    // optional sorting of the discrete axis by the measure
-    if (S.options.sort !== 'none' && color == null && (nomX !== nomY)) {
+    if (options.sort !== 'none' && color == null && (nomX !== nomY)) {   // sort the discrete axis by the measure
       const d = nomX ? 'x' : 'y', m = nomX ? 'y' : 'x';
-      if (enc[d].type !== 'temporal' && !enc[d].sort) enc[d].sort = (S.options.sort === 'desc' ? '-' : '') + m;
+      if (enc[d].type !== 'temporal' && !enc[d].sort) enc[d].sort = (options.sort === 'desc' ? '-' : '') + m;
     }
     if (mark === 'point') {
       if (shelves.size) enc.size = { ...shelfEnc('size', shelves.size, ctx), legend: { symbolFillColor: P.muted } };
@@ -178,13 +190,14 @@ function buildSpec(snap, box) {
     } else if (mark === 'heatmap') {
       if (!color) return { notes, message: 'Heatmap: dimensions on X and Y, and a measure (or Number of Records) on Color.' };
       inner = { mark: { type: 'rect', stroke: P.surface, strokeWidth: 1 }, encoding: enc };
-    } else { // bar
+    } else {
       inner = { mark: { type: 'bar', cornerRadiusEnd: 4, stroke: P.surface, strokeWidth: color ? 1 : 0 }, encoding: enc };
     }
   }
+  const data = ctx.rows;
   const spec = facet
     ? { data: { values: data }, facet, spec: { ...inner, width: cell.w, height: cell.h }, resolve: { scale: { x: 'shared', y: 'shared' } } }
-    : { data: { values: data }, ...inner, width: Math.max(200, box.w - (legendShown ? 190 : 90)), height: Math.max(180, box.h - 90), autosize: { type: 'fit', contains: 'padding' } };
+    : { data: { values: data }, ...inner, width: Math.max(160, box.w - (color ? 180 : 80)), height: Math.max(120, box.h - 70), autosize: { type: 'fit', contains: 'padding' } };
   return { spec, notes };
 }
 
@@ -193,34 +206,35 @@ function buildBox(resp, ctx, color, facet, cell, box, notes) {
   const P = pal();
   const orient = resp.info.orient;
   const catKey = orient === 'v' ? 'x' : 'y';
-  const ch = orient === 'v' ? { c: 'x', v: 'y', v2: 'y2', off: 'xOffset', size: 'width' } : { c: 'y', v: 'x', v2: 'x2', off: 'yOffset', size: 'height' };
+  const ch = orient === 'v' ? { c: 'x', v: 'y', v2: 'y2', off: 'xOffset' } : { c: 'y', v: 'x', v2: 'x2', off: 'yOffset' };
   const vf = resp.info.value_field;
   const rows = [...ctx.rows.map(r => ({ ...r, kind: 'box' })), ...resp.outliers.map(r => ({ ...r, kind: 'out' }))];
   let cat;
-  if (shelves[catKey]) cat = shelfEnc(catKey, shelves[catKey], { ...ctx, rows: ctx.rows });
+  if (shelves[catKey]) cat = shelfEnc(catKey, shelves[catKey], ctx);
   else { rows.forEach(r => (r._c = vf)); cat = { field: '_c', type: 'nominal', title: null, axis: { labels: false, ticks: false } }; }
   const off = color ? { [ch.off]: { field: 'color', type: color.type === 'quantitative' ? 'ordinal' : 'nominal' } } : {};
   const col = color ? { color } : {};
-  const val = (field, extra = {}) => ({ field, type: 'quantitative', title: vf, scale: { zero: false }, axis: { format: ',~g' }, ...extra });
+  const val = (field, extra = {}) => ({ field, type: 'quantitative', title: vf, scale: { zero: false }, axis: { format: ',.6~g' }, ...extra });
   const bw = color ? 14 : 34;
+  const box_ = "datum.kind === 'box'";
   const layers = [
-    { transform: [{ filter: "datum.kind === 'box'" }], mark: { type: 'rule', color: P.muted }, encoding: { [ch.c]: cat, [ch.v]: val('lo'), [ch.v2]: { field: 'hi' }, ...off } },
-    { transform: [{ filter: "datum.kind === 'box'" }], mark: { type: 'bar', size: bw, cornerRadius: 3, ...(color ? {} : { color: P.cat[0] }), opacity: 0.9 },
+    { transform: [{ filter: box_ }], mark: { type: 'rule', color: P.muted }, encoding: { [ch.c]: cat, [ch.v]: val('lo'), [ch.v2]: { field: 'hi' }, ...off } },
+    { transform: [{ filter: box_ }], mark: { type: 'bar', size: bw, cornerRadius: 3, ...(color ? {} : { color: P.cat[0] }), opacity: 0.9 },
       encoding: { [ch.c]: cat, [ch.v]: val('q1'), [ch.v2]: { field: 'q3' }, ...off, ...col } },
-    { transform: [{ filter: "datum.kind === 'box'" }], mark: { type: 'tick', size: bw, thickness: 2.5, color: P.surface }, encoding: { [ch.c]: cat, [ch.v]: val('median'), ...off } },
+    { transform: [{ filter: box_ }], mark: { type: 'tick', size: bw, thickness: 2.5, color: P.surface }, encoding: { [ch.c]: cat, [ch.v]: val('median'), ...off } },
     { transform: [{ filter: "datum.kind === 'out'" }], mark: { type: 'circle', size: 14, opacity: 0.45, ...(color ? {} : { color: P.cat[0] }) },
       encoding: { [ch.c]: cat, [ch.v]: val('value'), ...off, ...col } },
   ];
   const spec = facet
     ? { data: { values: rows }, facet, spec: { layer: layers, width: cell.w, height: cell.h } }
-    : { data: { values: rows }, layer: layers, width: Math.max(200, box.w - (color ? 190 : 90)), height: Math.max(180, box.h - 90), autosize: { type: 'fit', contains: 'padding' } };
-  notes.push('Box = Q1–Q3, line = median, whiskers = 1.5×IQR, dots = outliers');
+    : { data: { values: rows }, layer: layers, width: Math.max(160, box.w - (color ? 180 : 80)), height: Math.max(120, box.h - 70), autosize: { type: 'fit', contains: 'padding' } };
+  notes.push('Box = Q1–Q3, line = median, whiskers = 1.5×IQR');
   return { spec, notes };
 }
 
 export function initChart() {
-  new ResizeObserver(() => { clearTimeout(initChart.t); initChart.t = setTimeout(draw, 200); }).observe($('#chartBody'));
-  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', draw);
-  on('shelves-changed', scheduleChart);
-  on('filters-changed', () => S.tab === 'explore' && scheduleChart());
+  on('shelves-changed', () => scheduleChart(S.chart));
+  on('filters-changed', () => S.tab === 'explore' && refreshAll());
+  on('theme-changed', () => S.tab === 'explore' && redrawAll());
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => S.tab === 'explore' && redrawAll());
 }

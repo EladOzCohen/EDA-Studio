@@ -24,7 +24,10 @@ For very large files, paste the file path instead of dragging the file in (dragg
 
 ## Explore tab
 
-* Drag fields to **X, Y, Color, Size, Facet columns/rows**; pick the chart: bar, line, area, scatter, histogram, box plot, heatmap.
+* **Canvas:** drag a chart type (bar, line, area, scatter, histogram, box plot, heatmap) from the **Charts** panel onto the canvas — as many charts as you like, side by side. Click a chart to select it; resize it from its bottom-right corner, reorder with the ⋮⋮ handle, duplicate / remove / export from its header.
+* Every chart has an editable **title** and **footnote**; ⤓ downloads a PNG that includes them, ❐ copies the image to the clipboard (paste into PowerPoint).
+* The **shelves** above the canvas edit the selected chart: drag fields to **X, Y, Color, Size, Facet columns/rows** (or drop a field straight onto a chart). Facets only take dimensions.
+* Theme button (top right): Auto (follows Windows) → Light → Dark.
 * Click a pill (▾) to change its role (Dimension/Measure), aggregation (sum, avg, median, …, none), date part (year … hour, month-of-year, weekday) or bin size.
 * **Number of Records** is the row count. Drag any field to the **Filters** bar (applies to every tab).
 * Chart menu (⋯) exports PNG / SVG.

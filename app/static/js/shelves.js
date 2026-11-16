@@ -21,6 +21,10 @@ export function placePill(shelf, field, fromShelf) {
   if (kind === 'other') return toast('Nested columns (struct/list) cannot be plotted');
   if (shelf === 'size' && !['point'].includes(S.mark)) toast('Size only applies to Scatter / dots', 'info', 3000);
   let pill = fromShelf && S.shelves[fromShelf] ? S.shelves[fromShelf] : makePill(field);
+  if (shelf === 'col' || shelf === 'row') {   // facets split the chart by a dimension, never by an aggregate
+    if (field === RECORDS) return toast('Number of Records is a count, not a category — it can’t be used for facets', 'info', 4500);
+    if (pill.role === 'measure') pill = { field, role: 'dim', agg: 'none' };
+  }
   if (fromShelf && fromShelf !== shelf) {
     S.shelves[fromShelf] = S.shelves[shelf] || null;   // swap with whatever was in the target
   }
@@ -77,7 +81,24 @@ function shelfEl({ key, label }) {
   return h('div', { class: 'shelf' }, h('div', { class: 'shelf-label' }, label), zone);
 }
 
+/** Put a field on a sensible shelf of the active chart (double-click / drop on a chart). */
+export function placeAuto(field) {
+  const c = field === RECORDS ? { kind: 'numeric' } : colOf(field);
+  const order = c.kind === 'numeric'
+    ? (['hist', 'box'].includes(S.mark) ? (S.mark === 'hist' ? ['x', 'color', 'col'] : ['y', 'color', 'col']) : ['y', 'x', 'color', 'size'])
+    : ['x', 'color', 'col', 'y'];
+  const free = order.find(k => !S.shelves[k] && !((k === 'col' || k === 'row') && field === RECORDS));
+  placePill(free || order[0], field, null);
+}
+
 export function renderShelves() {
+  const has = !!S.chart;
+  $('#editor').classList.toggle('disabled', !has);
+  $('#editorLabel').textContent = has ? `Editing: ${S.chart.title || 'Chart ' + (S.charts.indexOf(S.chart) + 1)}` : 'No chart selected';
+  $('#markSel').value = S.mark;
+  $('#optBinsIn').value = S.options.bins;
+  $('#optPointsIn').value = S.options.max_points;
+  $('#optSortIn').value = S.options.sort;
   for (const { key } of SHELVES) {
     const zone = $(`.shelf-zone[data-shelf="${key}"]`);
     if (!zone) continue;
@@ -113,11 +134,4 @@ export function initShelves() {
   $('#swapBtn').addEventListener('click', () => { [S.shelves.x, S.shelves.y] = [S.shelves.y, S.shelves.x]; changed(); });
   $('#clearBtn').addEventListener('click', () => { for (const k of Object.keys(S.shelves)) S.shelves[k] = null; changed(); });
   on('pill-removed', d => { if (S.shelves[d.from]) { S.shelves[d.from] = null; changed(); } });
-  on('field-activate', field => {
-    if (S.tab !== 'explore') return;
-    const c = field === RECORDS ? { kind: 'numeric' } : colOf(field);
-    const order = c.kind === 'numeric' ? ['y', 'x', 'color', 'size'] : ['x', 'color', 'col', 'y'];
-    const free = order.find(k => !S.shelves[k]);
-    placePill(free || order[0], field, null);
-  });
 }

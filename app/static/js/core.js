@@ -2,12 +2,24 @@
 
 export const RECORDS = '__records__';
 
+let chartSeq = 1;
+export const emptyShelves = () => ({ x: null, y: null, color: null, size: null, col: null, row: null });
+export function newChart(mark = 'bar') {
+  return { id: 'c' + chartSeq++, mark, shelves: emptyShelves(), options: { bins: 30, max_points: 5000, sort: 'none' }, title: '', footnote: '', w: 560, h: 400 };
+}
+const NO_CHART = { mark: 'bar', shelves: emptyShelves(), options: { bins: 30, max_points: 5000, sort: 'none' } };
+
 export const S = {
   meta: null,            // loaded dataset (columns, n_rows, ...)
   tab: 'explore',
-  mark: 'bar',
-  shelves: { x: null, y: null, color: null, size: null, col: null, row: null },
-  options: { bins: 30, max_points: 5000, sort: 'none' },
+  charts: [],            // canvas charts: {id, mark, shelves, options, title, footnote, w, h}
+  activeId: null,
+  // The shelf editor works on the active chart; these accessors keep that code simple.
+  get chart() { return this.charts.find(c => c.id === this.activeId) || null; },
+  get mark() { return (this.chart || NO_CHART).mark; },
+  set mark(v) { if (this.chart) this.chart.mark = v; },
+  get shelves() { return (this.chart || NO_CHART).shelves; },
+  get options() { return (this.chart || NO_CHART).options; },
   filters: [],
   analyses: [],
   analysisId: 'descriptives',
@@ -136,7 +148,17 @@ export function makePill(field, mark = S.mark) {
 }
 
 // ---- theme --------------------------------------------------------------
-export const isDark = () => matchMedia('(prefers-color-scheme: dark)').matches;
+export const getTheme = () => { try { return localStorage.getItem('eda-theme') || 'auto'; } catch { return 'auto'; } };
+export function setTheme(t) {
+  try { localStorage.setItem('eda-theme', t); } catch { /* private mode */ }
+  if (t === 'auto') delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = t;
+  emit('theme-changed', t);
+}
+export const initTheme = () => { const t = getTheme(); if (t !== 'auto') document.documentElement.dataset.theme = t; };
+export const isDark = () => {
+  const t = document.documentElement.dataset.theme;
+  return t ? t === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+};
 export const PALETTE = {
   light: { cat: ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#6250d6', '#e34948'], surface: '#fcfcfb', ink: '#0b0b0b', ink2: '#52514e', muted: '#898781', grid: '#e1e0d9', axis: '#c3c2b7',
     seq: ['#cde2fb', '#9ec5f4', '#6da7ec', '#3987e5', '#256abf', '#184f95', '#0d366b'], mid: '#f0efec' },

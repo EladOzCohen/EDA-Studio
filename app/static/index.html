@@ -21,6 +21,7 @@
       <button class="tab" data-tab="stats">Statistics</button>
       <button class="tab" data-tab="data">Data</button>
     </nav>
+    <button id="themeBtn" class="btn theme-btn" title="Theme: auto (follows Windows) → light → dark"></button>
   </header>
 
   <div id="filterBar" class="filterbar">
@@ -31,24 +32,31 @@
 
   <div class="layout">
     <aside id="sidebar">
+      <div id="paletteBox">
+        <div class="group-title first">Charts <span class="muted">· drag onto the canvas</span></div>
+        <div id="palette" class="palette"></div>
+      </div>
       <input id="fieldSearch" type="search" placeholder="Search fields…">
       <div id="fieldList"></div>
     </aside>
 
     <main>
       <section id="tab-explore" class="tab-pane">
+        <div id="editor" class="editor">
         <div class="toolbar">
-          <label>Chart <select id="markSel"></select></label>
+          <span id="editorLabel" class="editor-label"></span>
+          <label>Chart type <select id="markSel"></select></label>
           <label id="optBins" hidden>Bins <input id="optBinsIn" type="number" min="2" max="200" value="30" class="num"></label>
           <label id="optPoints" hidden>Max points <input id="optPointsIn" type="number" min="100" max="100000" step="500" value="5000" class="num"></label>
           <label id="optSort" hidden>Sort <select id="optSortIn"><option value="none">Default</option><option value="desc">Value ↓</option><option value="asc">Value ↑</option></select></label>
           <span class="spacer"></span>
           <button id="swapBtn" class="btn" title="Swap X and Y">⇄ Swap</button>
-          <button id="clearBtn" class="btn">Clear</button>
+          <button id="clearBtn" class="btn" title="Empty the shelves of this chart">Clear shelves</button>
+          <button id="addChartBtn" class="btn primary">+ New chart</button>
         </div>
         <div id="shelves" class="shelves"></div>
-        <div id="chartInfo" class="chart-info"></div>
-        <div id="chartBody" class="chart-body"></div>
+        </div>
+        <div id="canvas" class="canvas"></div>
       </section>
 
       <section id="tab-stats" class="tab-pane" hidden>

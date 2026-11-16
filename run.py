@@ -58,6 +58,7 @@ def main():
                 return res[0] if res else None
 
             backend.native_file_picker = pick
+            webview.settings["ALLOW_DOWNLOADS"] = True   # chart PNG export saves through a download
             webview.start()
             server.should_exit = True
             return

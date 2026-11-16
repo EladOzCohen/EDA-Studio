@@ -1,10 +1,19 @@
-import { S, h, clear, $, api, on, emit, toast, fmtInt } from './core.js';
+import { S, h, clear, $, api, on, emit, toast, fmtInt, initTheme, getTheme, setTheme } from './core.js';
 import { initFields, renderFields } from './fields.js';
 import { initShelves, renderShelves } from './shelves.js';
 import { initFilters, renderFilters } from './filters.js';
-import { initChart, scheduleChart, draw } from './chart.js';
+import { initChart, refreshAll, redrawAll } from './chart.js';
+import { initCanvas, resetCharts, renderCanvas } from './canvas.js';
 import { initStats, renderStatsForm, runAnalysis } from './stats.js';
 import { initData, renderProfile, loadPreview } from './data.js';
+
+initTheme();   // before anything renders, so there is no light/dark flash
+
+const THEMES = { auto: ['◐', 'Auto'], light: ['☀', 'Light'], dark: ['☾', 'Dark'] };
+function paintThemeBtn() {
+  const [icon, name] = THEMES[getTheme()];
+  $('#themeBtn').textContent = `${icon} ${name}`;
+}
 
 function busy(msg) { $('#loading').hidden = !msg; $('#loadingMsg').textContent = msg || ''; }
 
@@ -15,7 +24,6 @@ async function guarded(fn, msg) {
 
 function setDataset(meta) {
   S.meta = meta;
-  for (const k of Object.keys(S.shelves)) S.shelves[k] = null;
   S.filters = [];
   S.slots = {};
   S.aopts = {};
@@ -25,16 +33,18 @@ function setDataset(meta) {
   const sheet = $('#sheetSel');
   sheet.hidden = !(meta.sheets && meta.sheets.length > 1);
   if (!sheet.hidden) { clear(sheet).append(...meta.sheets.map(s => h('option', { value: s, selected: s === meta.sheet }, s))); }
-  renderFields(); renderShelves(); renderFilters();
+  renderFields(); renderFilters();
+  resetCharts();            // a fresh canvas with one empty bar chart
   showTab(S.tab);
 }
 
 export function showTab(tab) {
   S.tab = tab;
+  document.body.dataset.tab = tab;
   document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
   document.querySelectorAll('.tab-pane').forEach(p => (p.hidden = p.id !== 'tab-' + tab));
   if (!S.meta) return;
-  if (tab === 'explore') { renderShelves(); scheduleChart(); requestAnimationFrame(draw); }
+  if (tab === 'explore') { renderShelves(); requestAnimationFrame(() => { refreshAll(); redrawAll(); }); }
   if (tab === 'stats') { renderStatsForm(); runAnalysis(); }
   if (tab === 'data') { renderProfile(); loadPreview(true); }
 }
@@ -58,8 +68,16 @@ async function uploadFile(file) {
 }
 
 async function main() {
-  initFields(); initShelves(); initFilters(); initChart(); initData();
+  initFields(); initShelves(); initFilters(); initChart(); initCanvas(); initData();
   await initStats();
+  document.body.dataset.tab = S.tab;
+  paintThemeBtn();
+  $('#themeBtn').addEventListener('click', () => {
+    const order = ['auto', 'light', 'dark'];
+    setTheme(order[(order.indexOf(getTheme()) + 1) % 3]);
+    paintThemeBtn();
+  });
+  on('theme-changed', () => { if (S.tab === 'stats') runAnalysis(); });
 
   document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
   $('#openBtn').addEventListener('click', () => guarded(pickAndOpen));
