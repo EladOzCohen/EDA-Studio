@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>EDA Studio</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/vendor/vega.min.js"></script>
+  <script src="/vendor/vega-lite.min.js"></script>
+  <script src="/vendor/vega-embed.min.js"></script>
+  <script type="module" src="/js/app.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="logo">◧</span> EDA Studio</div>
+    <button id="openBtn" class="btn">Open file…</button>
+    <div class="ds"><span id="dsName"></span><span id="dsInfo" class="muted"></span></div>
+    <select id="sheetSel" hidden title="Excel sheet"></select>
+    <nav class="tabs">
+      <button class="tab active" data-tab="explore">Explore</button>
+      <button class="tab" data-tab="stats">Statistics</button>
+      <button class="tab" data-tab="data">Data</button>
+    </nav>
+  </header>
+
+  <div id="filterBar" class="filterbar">
+    <span class="bar-label">Filters</span>
+    <div id="filterPills"></div>
+    <span id="filterHint" class="hint">drag a field here to filter every view</span>
+  </div>
+
+  <div class="layout">
+    <aside id="sidebar">
+      <input id="fieldSearch" type="search" placeholder="Search fields…">
+      <div id="fieldList"></div>
+    </aside>
+
+    <main>
+      <section id="tab-explore" class="tab-pane">
+        <div class="toolbar">
+          <label>Chart <select id="markSel"></select></label>
+          <label id="optBins" hidden>Bins <input id="optBinsIn" type="number" min="2" max="200" value="30" class="num"></label>
+          <label id="optPoints" hidden>Max points <input id="optPointsIn" type="number" min="100" max="100000" step="500" value="5000" class="num"></label>
+          <label id="optSort" hidden>Sort <select id="optSortIn"><option value="none">Default</option><option value="desc">Value ↓</option><option value="asc">Value ↑</option></select></label>
+          <span class="spacer"></span>
+          <button id="swapBtn" class="btn" title="Swap X and Y">⇄ Swap</button>
+          <button id="clearBtn" class="btn">Clear</button>
+        </div>
+        <div id="shelves" class="shelves"></div>
+        <div id="chartInfo" class="chart-info"></div>
+        <div id="chartBody" class="chart-body"></div>
+      </section>
+
+      <section id="tab-stats" class="tab-pane" hidden>
+        <div class="stats-layout">
+          <div id="statsForm" class="stats-form"></div>
+          <div id="statsResults" class="stats-results"></div>
+        </div>
+      </section>
+
+      <section id="tab-data" class="tab-pane" hidden>
+        <div class="data-pane">
+          <h3 class="pane-h">Columns</h3>
+          <div id="profile" class="table-wrap"></div>
+          <div class="pager"><h3 class="pane-h">Rows</h3><span class="spacer"></span><span id="pageInfo" class="muted"></span>
+            <button id="prevPage" class="btn">‹ Prev</button><button id="nextPage" class="btn">Next ›</button></div>
+          <div id="rows" class="table-wrap rows-wrap"></div>
+        </div>
+      </section>
+
+      <div id="welcome" class="welcome" hidden>
+        <div class="welcome-card">
+          <div class="logo big-logo">◧</div>
+          <h1>EDA Studio</h1>
+          <p>Drag &amp; drop exploration and simple statistics for your data.</p>
+          <button id="welcomeOpen" class="btn primary large">Open a file…</button>
+          <p class="muted">CSV · TSV · JSON / NDJSON · Parquet · Excel — or drop a file on this window</p>
+          <div class="path-row"><input id="pathIn" type="text" placeholder="…or paste a full file path (best for very large files)"><button id="pathGo" class="btn">Open</button></div>
+          <div id="samplesRow" class="samples-row"><span class="muted">Try a sample:</span><span id="samples"></span></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <div id="dropOverlay" class="drop-overlay" hidden><div>Drop a file to open it</div></div>
+  <div id="loading" class="loading" hidden><div class="spinner"></div><div id="loadingMsg"></div></div>
+  <div id="toasts" class="toasts"></div>
+</body>
+</html>

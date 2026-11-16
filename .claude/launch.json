@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "eda-studio",
+      "runtimeExecutable": ".venv\\Scripts\\python.exe",
+      "runtimeArgs": ["run.py", "--no-open", "--port", "8765"],
+      "port": 8765
+    }
+  ]
+}

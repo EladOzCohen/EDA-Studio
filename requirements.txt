@@ -1,0 +1,14 @@
+fastapi
+uvicorn
+python-multipart
+duckdb
+pandas
+pyarrow
+openpyxl
+scipy
+statsmodels
+pywebview
+# dev / build
+pytest
+httpx
+pyinstaller
