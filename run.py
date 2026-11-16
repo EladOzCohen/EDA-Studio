@@ -72,4 +72,11 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception:  # windowed exe has no console: leave a log next to it
+        import traceback
+        from pathlib import Path
+        log = Path(sys.executable).parent / "EDAStudio_error.log" if getattr(sys, "frozen", False) else Path("EDAStudio_error.log")
+        log.write_text(traceback.format_exc(), encoding="utf-8")
+        raise

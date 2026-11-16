@@ -1,10 +1,22 @@
 # Builds a portable folder (no installer / no admin rights needed): dist\EDAStudio\EDAStudio.exe
 # Copy the whole dist\EDAStudio folder anywhere (USB stick, network share) and run the exe.
-$ErrorActionPreference = "Stop"
 Set-Location $PSScriptRoot
-.\.venv\Scripts\python.exe -m PyInstaller --noconfirm --clean --onedir --windowed --name EDAStudio `
+# PyInstaller writes progress to stderr; don't let PowerShell treat that as a failure.
+$ErrorActionPreference = "Continue"
+$py = ".\.venv\Scripts\python.exe"
+
+# Anaconda keeps some DLLs the stdlib needs (libffi for ctypes, openssl, sqlite, ...) in Library\bin,
+# and PyInstaller doesn't find them from a venv. Bundle them explicitly.
+$base = (& $py -c "import sys; print(sys.base_prefix)").Trim()
+$extra = @()
+foreach ($pat in "ffi*.dll", "libssl*.dll", "libcrypto*.dll", "sqlite3.dll", "libbz2.dll", "liblzma.dll", "zlib.dll", "libexpat.dll") {
+    Get-ChildItem "$base\Library\bin\$pat" -ErrorAction SilentlyContinue | ForEach-Object { $extra += "--add-binary"; $extra += "$($_.FullName);." }
+}
+
+& $py -m PyInstaller --noconfirm --clean --onedir --windowed --name EDAStudio `
     --add-data "app\static;app\static" --add-data "sample_data;sample_data" `
     --collect-submodules uvicorn --collect-submodules statsmodels --collect-all webview `
     --exclude-module matplotlib --exclude-module IPython --exclude-module notebook --exclude-module pytest `
-    run.py
+    @extra run.py
+if ($LASTEXITCODE -ne 0) { Write-Error "PyInstaller failed ($LASTEXITCODE)"; exit $LASTEXITCODE }
 Write-Host "Done: dist\EDAStudio\EDAStudio.exe"
