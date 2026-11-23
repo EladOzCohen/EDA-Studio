@@ -111,6 +111,17 @@ def pick_file():
     return ok(dict(path=path or None))
 
 
+class TypeReq(BaseModel):
+    column: str
+    type: str
+    force: bool = False
+
+
+@app.post("/api/set_type")
+def set_type(req: TypeReq):
+    return ok(store.set_type(req.column, req.type, req.force))
+
+
 @app.post("/api/preview")
 def preview(req: FilterReq, limit: int = 200, offset: int = 0):
     return ok(store.preview(min(limit, 1000), offset, req.filters))
@@ -139,6 +150,15 @@ def analyze(req: AnalyzeReq):
     if not store.meta:
         raise ValueError("Open a dataset first")
     return ok(dict(blocks=a.run(store, req.slots, req.options, req.filters)))
+
+
+@app.middleware("http")
+async def no_stale_frontend(request: Request, call_next):
+    """Always revalidate the UI files, so an upgraded app never runs old cached JS/CSS."""
+    resp = await call_next(request)
+    if not request.url.path.startswith("/api/"):
+        resp.headers["Cache-Control"] = "no-cache"
+    return resp
 
 
 # Static frontend last, so /api/* routes win.

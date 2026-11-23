@@ -26,6 +26,13 @@ def qstr(s: str) -> str:
     return "'" + str(s).replace("'", "''") + "'"
 
 
+TYPE_SQL = {"text": "VARCHAR", "integer": "BIGINT", "decimal": "DOUBLE", "date": "DATE",
+            "datetime": "TIMESTAMP", "boolean": "BOOLEAN"}
+# Day-first formats (common in Israel / Europe) tried after ISO dates when converting text to a date
+DATE_FORMATS = ["%d/%m/%Y", "%d.%m.%Y", "%d-%m-%Y", "%d/%m/%y", "%d.%m.%y"]
+DATETIME_FORMATS = [f"{d} {t}" for d in DATE_FORMATS[:3] for t in ("%H:%M:%S", "%H:%M")]
+
+
 def kind_of(dtype: str) -> str:
     d = dtype.upper()
     if d.startswith(("STRUCT", "LIST", "MAP", "UNION", "BLOB", "BIT", "INTERVAL", "TIME ")) or d.endswith("[]") or d == "TIME":
@@ -169,6 +176,42 @@ class Store:
                             nunique=nd, min=jsonable(mn), max=jsonable(mx),
                             mean=jsonable(avg), sd=jsonable(sd)))
         return dict(n_rows=n_rows, columns=out)
+
+    # ------------------------------------------------------------ type changes
+    def _cast_expr(self, column: str, src_dtype: str, target: str) -> str:
+        q, t = qident(column), TYPE_SQL[target]
+        if target == "text":
+            return f"CAST({q} AS VARCHAR)"
+        from_text = src_dtype.upper().startswith("VARCHAR")
+        base = f"TRIM({q})" if from_text else q
+        if from_text and target in ("date", "datetime"):
+            formats = DATE_FORMATS if target == "date" else DATETIME_FORMATS
+            parts = [f"TRY_CAST({base} AS {t})"] + [f"TRY_CAST(try_strptime({base}, {qstr(f)}) AS {t})" for f in formats]
+            return f"COALESCE({', '.join(parts)})"
+        if from_text and target == "boolean":
+            return (f"CASE WHEN lower({base}) IN ('true','yes','y','1','כן') THEN TRUE "
+                    f"WHEN lower({base}) IN ('false','no','n','0','לא') THEN FALSE END")
+        return f"TRY_CAST({base} AS {t})"
+
+    def set_type(self, column: str, target: str, force: bool = False) -> dict:
+        """Change a column's type. Values that can't be converted would become empty, so unless `force` is
+        set the caller first gets {needs_confirm, failed, total, examples} and nothing is changed."""
+        if target not in TYPE_SQL:
+            raise ValueError(f"Unknown type: {target}")
+        col = self.column(column)
+        if col["kind"] == "other":
+            raise ValueError("Nested columns (struct/list) can't be converted")
+        q, expr = qident(column), self._cast_expr(column, col["dtype"], target)
+        with self.lock:
+            failed, total = self.con.execute(
+                f"SELECT count(*) FILTER (WHERE {q} IS NOT NULL AND ({expr}) IS NULL), count({q}) FROM {TABLE}").fetchone()
+            if failed and not force:
+                ex = self.con.execute(
+                    f"SELECT DISTINCT {q}::VARCHAR FROM {TABLE} WHERE {q} IS NOT NULL AND ({expr}) IS NULL LIMIT 5").fetchall()
+                return dict(needs_confirm=True, failed=failed, total=total, examples=[r[0] for r in ex])
+            self.con.execute(f"ALTER TABLE {TABLE} ALTER COLUMN {q} SET DATA TYPE {TYPE_SQL[target]} USING {expr}")
+            self.meta.update(self._profile())
+            return dict(needs_confirm=False, failed=failed, meta=self.meta)
 
     # ----------------------------------------------------------------- helpers
     def column(self, name: str) -> dict:

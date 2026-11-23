@@ -91,6 +91,8 @@ main { flex: 1; min-width: 0; position: relative; overflow: hidden; display: fle
 .pill.dim { background: var(--dim-soft); color: var(--dim); border: 1px solid color-mix(in srgb, var(--dim) 35%, transparent); }
 .pill.measure { background: var(--meas-soft); color: color-mix(in srgb, var(--meas) 75%, var(--ink)); border: 1px solid color-mix(in srgb, var(--meas) 40%, transparent); }
 .pill.filter { background: var(--filter-soft); border: 1px solid #eda10088; color: var(--ink); }
+.pill-agg { font: inherit; font-size: 11px; font-weight: 700; text-transform: none; border: 0; border-radius: 4px; padding: 1px 2px; margin-right: 5px; cursor: pointer; color: inherit; background: color-mix(in srgb, var(--meas) 22%, transparent); max-width: 90px; }
+.pill-agg option { color: initial; background: initial; font-weight: 400; }
 .pill-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
 .pill-btn { border: 0; background: none; cursor: pointer; padding: 0 5px; opacity: .65; color: inherit; }
 .pill-btn:hover { opacity: 1; }
@@ -200,6 +202,7 @@ body[data-tab="explore"] #paletteBox { display: block; }
 .stat-table.rows td.idx, .stat-table.rows th.idx { color: var(--muted); }
 .null { color: var(--muted); font-style: italic; }
 .profile td, .profile th { padding-right: 16px; }
+.type-sel { font: inherit; font-size: 12px; color: var(--ink); background: var(--page); border: 1px solid var(--line-2); border-radius: 5px; padding: 2px 4px; cursor: pointer; }
 
 /* welcome */
 .welcome { position: absolute; inset: 0; background: var(--page); display: flex; align-items: center; justify-content: center; z-index: 5; }

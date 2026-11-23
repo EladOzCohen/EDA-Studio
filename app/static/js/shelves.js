@@ -1,5 +1,5 @@
 // Explore tab controls: mark picker, shelves (drop zones) and the pill settings menu.
-import { S, RECORDS, h, clear, $, emit, on, colOf, makePill, pillLabel, openPopover, closePopover, toast, AGG_NAMES } from './core.js';
+import { S, RECORDS, h, clear, $, emit, on, colOf, makePill, pillLabel, openPopover, closePopover, toast, AGG_NAMES, AGG_LABEL } from './core.js';
 import { startDrag, endDrag, readDrag, hasField } from './fields.js';
 
 export const SHELVES = [
@@ -35,13 +35,27 @@ export function placePill(shelf, field, fromShelf) {
 function pillEl(shelf, p) {
   const c = p.field === RECORDS ? { kind: 'numeric' } : colOf(p.field);
   const measure = p.field === RECORDS || p.role === 'measure';
+  // Measures get a visible statistic picker (Sum / Average / Median / ...) right on the pill
+  const aggSel = p.role === 'measure' && p.field !== RECORDS ? h('select', { class: 'pill-agg', title: 'Statistic' },
+    ...aggsFor(c).map(a => h('option', { value: a, title: AGG_NAMES[a], selected: (p.agg || 'none') === a }, AGG_LABEL[a]))) : null;
+  if (aggSel) {
+    aggSel.addEventListener('click', e => e.stopPropagation());
+    aggSel.addEventListener('change', () => { p.agg = aggSel.value; changed(); });
+  }
   const el = h('div', { class: `pill ${measure ? 'measure' : 'dim'}`, draggable: true, title: pillLabel(p),
     ondragstart: e => startDrag(e, { field: p.field, from: shelf }), ondragend: endDrag },
-    h('span', { class: 'pill-label' }, pillLabel(p)),
+    aggSel,
+    h('span', { class: 'pill-label' }, aggSel ? p.field : pillLabel(p)),
     p.field === RECORDS ? null : h('button', { class: 'pill-btn', title: 'Settings', onclick: e => { e.stopPropagation(); pillMenu(el, p, c); } }, '▾'),
     h('button', { class: 'pill-btn', title: 'Remove', onclick: e => { e.stopPropagation(); S.shelves[shelf] = null; changed(); } }, '×'));
   el.addEventListener('click', () => p.field !== RECORDS && pillMenu(el, p, c));
   return el;
+}
+
+/** Statistics that make sense for a column of this kind. */
+function aggsFor(c) {
+  return c.kind === 'numeric' ? ['sum', 'avg', 'median', 'min', 'max', 'std', 'count', 'countd', 'none']
+    : c.kind === 'temporal' ? ['min', 'max', 'count', 'countd', 'none'] : ['count', 'countd', 'min', 'max'];
 }
 
 export function pillMenu(anchor, p, c, onChange = changed) {
@@ -54,9 +68,7 @@ export function pillMenu(anchor, p, c, onChange = changed) {
     h('button', { class: p.role === 'measure' ? 'on' : '', onclick: () => { Object.assign(p, { role: 'measure', agg: c.kind === 'numeric' ? 'sum' : c.kind === 'temporal' ? 'min' : 'countd' }); delete p.trunc; delete p.bin; redo(); } }, 'Measure'));
   body.append(seg);
   if (p.role === 'measure') {
-    const aggs = c.kind === 'numeric' ? ['sum', 'avg', 'median', 'min', 'max', 'std', 'count', 'countd', 'none']
-      : c.kind === 'temporal' ? ['min', 'max', 'count', 'countd', 'none'] : ['count', 'countd', 'min', 'max'];
-    body.append(h('div', { class: 'menu-sub' }, 'Aggregation'), ...aggs.map(a => item(AGG_NAMES[a], (p.agg || 'none') === a, () => { p.agg = a; redo(); })));
+    body.append(h('div', { class: 'menu-sub' }, 'Statistic'), ...aggsFor(c).map(a => item(AGG_NAMES[a], (p.agg || 'none') === a, () => { p.agg = a; redo(); })));
   } else if (c.kind === 'temporal') {
     body.append(h('div', { class: 'menu-sub' }, 'Date part'), ...DATE_PARTS.map(([v, l]) => item(l, (p.trunc || '') === v, () => { if (v) p.trunc = v; else delete p.trunc; redo(); })));
   } else if (c.kind === 'numeric') {
@@ -82,13 +94,33 @@ function shelfEl({ key, label }) {
 }
 
 /** Put a field on a sensible shelf of the active chart (double-click / drop on a chart). */
+/** Educated guess of the shelf a field belongs on, given the chart type and what is already placed. */
+export function guessShelf(field) {
+  const kind = field === RECORDS ? 'numeric' : colOf(field)?.kind;
+  const s = S.shelves, mark = S.mark;
+  const isMeasure = k => !!s[k] && (s[k].role === 'measure' || s[k].field === RECORDS);
+  let order;
+  if (kind === 'numeric') {              // numbers: the thing being measured
+    if (mark === 'hist') order = ['x', 'color', 'col'];
+    else if (mark === 'box') order = ['y', 'color', 'col'];
+    else if (mark === 'heatmap') order = ['color'];
+    else if (mark === 'point') order = s.x && !isMeasure('x') ? ['y', 'color', 'size'] : ['x', 'y', 'color', 'size'];   // scatter: 1st number → X, 2nd → Y
+    else order = ['y', 'color'];
+  } else {                               // categories / dates: what the data is split by
+    if (mark === 'heatmap') order = ['x', 'y'];
+    else if (mark === 'point' && isMeasure('x')) order = ['color', 'col', 'row'];
+    else order = ['x', 'color', 'col', 'row'];
+    if (mark === 'box' && !s.x) order = ['x', 'color', 'col', 'row'];
+  }
+  const free = order.find(k => !s[k] && !((k === 'col' || k === 'row') && field === RECORDS));
+  return { shelf: free || order[0], replaced: !free };
+}
+
+/** Put a field on a sensible shelf of the active chart (double-click / drop on a chart or on the editor). */
 export function placeAuto(field) {
-  const c = field === RECORDS ? { kind: 'numeric' } : colOf(field);
-  const order = c.kind === 'numeric'
-    ? (['hist', 'box'].includes(S.mark) ? (S.mark === 'hist' ? ['x', 'color', 'col'] : ['y', 'color', 'col']) : ['y', 'x', 'color', 'size'])
-    : ['x', 'color', 'col', 'y'];
-  const free = order.find(k => !S.shelves[k] && !((k === 'col' || k === 'row') && field === RECORDS));
-  placePill(free || order[0], field, null);
+  const { shelf, replaced } = guessShelf(field);
+  if (replaced) toast(`All suitable slots were taken — replaced the ${SHELVES.find(x => x.key === shelf).label}`, 'info', 3500);
+  placePill(shelf, field, null);
 }
 
 export function renderShelves() {
@@ -138,5 +170,12 @@ export function initShelves() {
   $('#optSortIn').addEventListener('change', e => { S.options.sort = e.target.value; changed(); });
   $('#swapBtn').addEventListener('click', () => { [S.shelves.x, S.shelves.y] = [S.shelves.y, S.shelves.x]; changed(); });
   $('#clearBtn').addEventListener('click', () => { for (const k of Object.keys(S.shelves)) S.shelves[k] = null; changed(); });
+  // A field dropped anywhere on the editor (not on a specific shelf) is placed by best guess
+  const editor = $('#editor');
+  editor.addEventListener('dragover', e => { if (hasField(e)) e.preventDefault(); });
+  editor.addEventListener('drop', e => {
+    const d = readDrag(e);
+    if (d && d.from === 'fields' && S.chart) { e.preventDefault(); placeAuto(d.field); }
+  });
   on('pill-removed', d => { if (S.shelves[d.from]) { S.shelves[d.from] = null; changed(); } });
 }

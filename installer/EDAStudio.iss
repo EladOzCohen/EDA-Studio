@@ -11,8 +11,8 @@ AppId={{B7E3C1A4-5D2F-4E8B-9A61-3F0D8C2E7A15}
 AppName=EDA Studio
 AppVersion={#AppVersion}
 AppPublisher=EladOzCohen
-AppPublisherURL=https://github.com/EladOzCohen/EDA_Factory
-AppSupportURL=https://github.com/EladOzCohen/EDA_Factory/issues
+AppPublisherURL=https://github.com/EladOzCohen/EDA-Studio
+AppSupportURL=https://github.com/EladOzCohen/EDA-Studio/issues
 ; Per-user install: no administrator rights, no UAC prompt.
 PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog

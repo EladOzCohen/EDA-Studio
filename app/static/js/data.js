@@ -1,9 +1,56 @@
 // Data tab: column profile + paged row preview.
-import { S, h, clear, $, api, on, fmtCell, fmtInt } from './core.js';
-import { KIND_GLYPH } from './fields.js';
+import { S, h, clear, $, api, on, emit, toast, makePill, fmtCell, fmtInt } from './core.js';
+import { KIND_GLYPH, renderFields } from './fields.js';
+import { renderFilters } from './filters.js';
 
 const PAGE = 100;
 let offset = 0;
+
+const TYPES = [['text', 'Text'], ['integer', 'Whole number'], ['decimal', 'Decimal number'], ['date', 'Date'], ['datetime', 'Date & time'], ['boolean', 'True / False']];
+
+function typeKey(dtype) {
+  const d = dtype.toUpperCase();
+  if (d.startsWith('VARCHAR')) return 'text';
+  if (/^(U?(TINY|SMALL|BIG|HUGE)?INT(EGER)?)$/.test(d)) return 'integer';
+  if (d === 'DOUBLE' || d === 'FLOAT' || d === 'REAL' || d.startsWith('DECIMAL')) return 'decimal';
+  if (d === 'DATE') return 'date';
+  if (d.startsWith('TIMESTAMP')) return 'datetime';
+  if (d === 'BOOLEAN') return 'boolean';
+  return null;
+}
+
+/** Dropdown to override the detected type (e.g. an ID read as a number → Text, "revenue" read as text → Decimal). */
+function typeSelect(c) {
+  const cur = typeKey(c.dtype);
+  if (c.kind === 'other') return h('span', { class: 'muted' }, c.dtype);
+  const sel = h('select', { class: 'type-sel', title: `Detected as ${c.dtype}. Change it if it was guessed wrong.` },
+    cur ? null : h('option', { value: '', selected: true, disabled: true }, c.dtype),
+    ...TYPES.map(([v, l]) => h('option', { value: v, selected: v === cur }, l)));
+  sel.addEventListener('change', () => changeType(c, sel.value, sel, cur));
+  return sel;
+}
+
+async function changeType(c, target, sel, prev) {
+  const label = TYPES.find(t => t[0] === target)[1];
+  try {
+    let r = await api('/api/set_type', { column: c.name, type: target });
+    if (r.needs_confirm) {
+      const ex = r.examples.map(x => `"${x}"`).join(', ');
+      const ok = confirm(`${fmtInt(r.failed)} of ${fmtInt(r.total)} values in "${c.name}" can't be read as ${label}` +
+        ` (for example ${ex}).\nThey would become empty.\n\nConvert anyway?`);
+      if (!ok) { sel.value = prev || ''; return; }
+      r = await api('/api/set_type', { column: c.name, type: target, force: true });
+    }
+    S.meta = r.meta;
+    // anything built on the old type (filters, chart pills, stats variables) is reset so nothing breaks
+    S.filters = S.filters.filter(f => f.field !== c.name);
+    for (const ch of S.charts) for (const k of Object.keys(ch.shelves)) if (ch.shelves[k]?.field === c.name) ch.shelves[k] = makePill(c.name, ch.mark);
+    for (const a of Object.values(S.slots)) for (const k of Object.keys(a)) a[k] = a[k].filter(v => v !== c.name);
+    renderFields(); renderFilters(); renderProfile(); loadPreview(true);
+    emit('type-changed', c.name);
+    toast(`"${c.name}" is now ${label}` + (r.failed ? ` — ${fmtInt(r.failed)} values became empty` : ''), 'info', 4000);
+  } catch (e) { sel.value = prev || ''; toast(e.message); }
+}
 
 export function renderProfile() {
   const box = clear($('#profile'));
@@ -14,7 +61,7 @@ export function renderProfile() {
     h('thead', {}, h('tr', {}, th('Column', 'l'), th('Type', 'l'), th('Non-null'), th('Missing'), th('Unique ≈'), th('Min'), th('Max'), th('Mean'), th('SD'))),
     h('tbody', {}, S.meta.columns.map(c => h('tr', {},
       h('td', { class: 'l' }, h('span', { class: `glyph k-${c.kind}` }, KIND_GLYPH[c.kind]), ' ', c.name),
-      h('td', { class: 'l muted' }, c.dtype),
+      h('td', { class: 'l' }, typeSelect(c)),
       h('td', { class: 'r' }, fmtInt(c.n)),
       h('td', { class: `r ${c.nulls ? 'warn' : ''}` }, c.nulls ? `${fmtInt(c.nulls)} (${(100 * c.nulls / n).toFixed(1)}%)` : '0'),
       h('td', { class: 'r' }, c.nunique == null ? '' : fmtInt(c.nunique)),

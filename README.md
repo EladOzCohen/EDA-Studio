@@ -18,7 +18,7 @@ Build several charts side by side like in Tableau, then run a t-test, ANOVA, cor
 
 <br>
 
-### [⬇&nbsp;&nbsp;Download for Windows](https://github.com/EladOzCohen/EDA_Factory/releases/latest)
+### [⬇&nbsp;&nbsp;Download for Windows](https://github.com/EladOzCohen/EDA-Studio/releases/latest)
 
 <sub>One file · double-click to install · no admin rights · Windows 10 / 11</sub>
 
@@ -99,7 +99,7 @@ EDA Studio keeps that loop to a few drags: nothing is charted automatically, **y
 
 ## Install
 
-1. **[Download the installer](https://github.com/EladOzCohen/EDA_Factory/releases/latest)** — the file called `EDAStudio-Setup-….exe` under *Assets*.
+1. **[Download the installer](https://github.com/EladOzCohen/EDA-Studio/releases/latest)** — the file called `EDAStudio-Setup-….exe` under *Assets*.
 2. **Double-click it.** If Windows says *"Windows protected your PC"*, click **More info → Run anyway**
    *(the app isn't signed with a paid certificate, so Windows is just being careful).*
 3. **Next → Install → Finish.** An **EDA Studio** icon appears on your desktop. Double-click it and drop a file onto the window.
@@ -111,7 +111,7 @@ That's it — no Python, no setup, no admin rights. To remove it: *Windows Setti
 
 <div dir="rtl">
 
-1. נכנסים ל-[עמוד ההורדה](https://github.com/EladOzCohen/EDA_Factory/releases/latest) ומורידים את הקובץ **EDAStudio-Setup-….exe** (תחת *Assets*).
+1. נכנסים ל-[עמוד ההורדה](https://github.com/EladOzCohen/EDA-Studio/releases/latest) ומורידים את הקובץ **EDAStudio-Setup-….exe** (תחת *Assets*).
 2. לוחצים עליו פעמיים. אם Windows מציג **"Windows protected your PC"** — לוחצים **More info** ואז **Run anyway** (זה קורה כי התוכנה לא חתומה בתעודה בתשלום).
 3. **Next ← Install ← Finish.** אייקון **EDA Studio** יופיע בשולחן העבודה. פותחים אותו וגוררים קובץ נתונים לחלון.
 

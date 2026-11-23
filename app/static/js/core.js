@@ -119,8 +119,8 @@ export const fmtInt = n => (n ?? 0).toLocaleString();
 export const colOf = name => S.meta?.columns.find(c => c.name === name);
 export const kindOf = name => (name === RECORDS ? 'numeric' : colOf(name)?.kind);
 
-const AGG_LABEL = { sum: 'SUM', avg: 'AVG', median: 'MEDIAN', min: 'MIN', max: 'MAX', std: 'STDEV', count: 'COUNT', countd: 'COUNTD' };
-export const AGG_NAMES = { sum: 'Sum', avg: 'Average', median: 'Median', min: 'Minimum', max: 'Maximum', std: 'Std. deviation', count: 'Count', countd: 'Count (distinct)', none: 'None (raw values)' };
+export const AGG_LABEL = { sum: 'SUM', avg: 'AVG', median: 'MEDIAN', min: 'MIN', max: 'MAX', std: 'STDEV', count: 'COUNT', countd: 'COUNTD', none: 'RAW' };
+export const AGG_NAMES = { sum: 'Sum', avg: 'Average (mean)', median: 'Median', min: 'Minimum', max: 'Maximum', std: 'Std. deviation', count: 'Count', countd: 'Count (distinct)', none: 'None (raw values)' };
 export const TRUNC_LABEL = { year: 'YEAR', quarter: 'QUARTER', month: 'MONTH', week: 'WEEK', day: 'DAY', hour: 'HOUR', minute: 'MINUTE', moy: 'MONTH OF YEAR', dow: 'WEEKDAY', hod: 'HOUR OF DAY' };
 
 export function pillLabel(p) {

@@ -168,3 +168,33 @@ def test_regression_matches_statsmodels(c):
 def test_descriptives_split(c):
     blocks = analyze(c, "descriptives", {"vars": ["revenue", "satisfaction"], "split": ["channel"]}, {"hist": True})
     assert len(blocks[0]["rows"]) == 4 and len(blocks) == 3
+
+
+def test_change_column_type(tmp_path):
+    f = tmp_path / "ids.csv"
+    f.write_text("id,amount,day\n1001,10.5,23.11.2026\n1002,abc,24.11.2026\n1003,7,25.11.2026\n", encoding="utf-8")
+    client = TestClient(app)
+    assert client.post("/api/load", json={"path": str(f)}).status_code == 200
+    kinds = lambda: {x["name"]: x["kind"] for x in client.get("/api/state").json()["columns"]}
+    assert kinds() == {"id": "numeric", "amount": "categorical", "day": "temporal"}
+
+    # an ID read as a number -> text (always convertible)
+    r = client.post("/api/set_type", json=dict(column="id", type="text")).json()
+    assert not r["needs_confirm"] and kinds()["id"] == "categorical"
+
+    # "abc" can't be a number: the caller is asked first and nothing changes
+    r = client.post("/api/set_type", json=dict(column="amount", type="decimal")).json()
+    assert r["needs_confirm"] and r["failed"] == 1 and r["examples"] == ["abc"]
+    assert kinds()["amount"] == "categorical"
+    r = client.post("/api/set_type", json=dict(column="amount", type="decimal", force=True)).json()
+    assert r["failed"] == 1 and kinds()["amount"] == "numeric"
+
+    # day-first text dates (23.11.2026) are understood
+    client.post("/api/set_type", json=dict(column="day", type="text"))
+    assert kinds()["day"] == "categorical"
+    r = client.post("/api/set_type", json=dict(column="day", type="date")).json()
+    assert not r["needs_confirm"] and kinds()["day"] == "temporal"
+    assert [c for c in r["meta"]["columns"] if c["name"] == "day"][0]["min"].startswith("2026-11-23")
+
+    assert client.post("/api/set_type", json=dict(column="nope", type="text")).status_code == 400
+    assert client.post("/api/set_type", json=dict(column="id", type="blob")).status_code == 400
