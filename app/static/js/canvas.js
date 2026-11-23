@@ -74,6 +74,18 @@ function wrap(ctx, text, maxW) {
   }
   return lines;
 }
+// A line whose first strong letter is Hebrew/Arabic is drawn right-to-left, aligned to the right edge
+const RTL_RE = /[֐-ࣿיִ-﷿ﹰ-﻿]/, LTR_RE = /[A-Za-z]/;
+function isRtl(s) {
+  for (const ch of s) { if (RTL_RE.test(ch)) return true; if (LTR_RE.test(ch)) return false; }
+  return false;
+}
+function drawLine(ctx, text, width, pad, y) {
+  const rtl = isRtl(text);
+  ctx.direction = rtl ? 'rtl' : 'ltr';
+  ctx.textAlign = rtl ? 'right' : 'left';
+  ctx.fillText(text, rtl ? width - pad : pad, y);
+}
 async function chartCanvas(c) {
   if (!c._view) throw new Error('Nothing to export yet');
   const P = pal(), sc = 2;
@@ -91,10 +103,10 @@ async function chartCanvas(c) {
   ctx.fillStyle = P.surface; ctx.fillRect(0, 0, out.width, out.height);
   ctx.textBaseline = 'alphabetic';
   ctx.fillStyle = P.ink; ctx.font = `600 ${16 * sc}px "Segoe UI", sans-serif`;
-  tLines.forEach((l, i) => ctx.fillText(l, pad, (20 + i * 22) * sc));
+  tLines.forEach((l, i) => drawLine(ctx, l, out.width, pad, (20 + i * 22) * sc));
   ctx.drawImage(plot, 0, tH);
   ctx.fillStyle = P.ink2; ctx.font = `${12 * sc}px "Segoe UI", sans-serif`;
-  fLines.forEach((l, i) => ctx.fillText(l, pad, tH + plot.height + (4 + 12 + i * 16) * sc));
+  fLines.forEach((l, i) => drawLine(ctx, l, out.width, pad, tH + plot.height + (4 + 12 + i * 16) * sc));
   return out;
 }
 async function downloadPng(c) {
@@ -126,9 +138,9 @@ const sizeObserver = new ResizeObserver(entries => {
 });
 
 function cardEl(c) {
-  const title = h('input', { class: 'card-title', type: 'text', placeholder: 'Add a title…', value: c.title, spellcheck: false,
+  const title = h('input', { class: 'card-title', type: 'text', dir: 'auto', placeholder: 'Add a title…', value: c.title, spellcheck: false,
     oninput: e => { c.title = e.target.value; if (S.activeId === c.id) renderShelves(); } });
-  const foot = h('textarea', { class: 'card-foot', rows: 1, placeholder: 'Add a footnote…', value: c.footnote, spellcheck: false,
+  const foot = h('textarea', { class: 'card-foot', dir: 'auto', rows: 1, placeholder: 'Add a footnote…', value: c.footnote, spellcheck: false,
     oninput: e => { c.footnote = e.target.value; e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; },
     onchange: () => drawChart(c) });
   foot.value = c.footnote;

@@ -94,7 +94,12 @@ export function placeAuto(field) {
 export function renderShelves() {
   const has = !!S.chart;
   $('#editor').classList.toggle('disabled', !has);
-  $('#editorLabel').textContent = has ? `Editing: ${S.chart.title || 'Chart ' + (S.charts.indexOf(S.chart) + 1)}` : 'No chart selected';
+  const lbl = $('#editorLabel');
+  lbl.textContent = '';
+  if (has) {
+    // <bdi> isolates the (possibly right-to-left) title so it can't scramble the surrounding English text
+    lbl.append('Editing: ', h('bdi', {}, S.chart.title || 'Chart ' + (S.charts.indexOf(S.chart) + 1)));
+  } else lbl.textContent = 'No chart selected';
   $('#markSel').value = S.mark;
   $('#optBinsIn').value = S.options.bins;
   $('#optPointsIn').value = S.options.max_points;
