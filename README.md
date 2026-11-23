@@ -18,6 +18,12 @@ Build several charts side by side like in Tableau, then run a t-test, ANOVA, cor
 
 <br>
 
+### [⬇&nbsp;&nbsp;Download for Windows](https://github.com/EladOzCohen/EDA_Factory/releases/latest)
+
+<sub>One file · double-click to install · no admin rights · Windows 10 / 11</sub>
+
+<br>
+
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/dashboard-dark.png">
   <img src="docs/screenshots/dashboard-light.png" alt="EDA Studio — a canvas with four charts: bar, line, box plot and heatmap" width="100%">
@@ -91,19 +97,32 @@ EDA Studio keeps that loop to a few drags: nothing is charted automatically, **y
 </tr>
 </table>
 
-## Getting started
+## Install
 
-### Option A — portable build (recommended)
+1. **[Download the installer](https://github.com/EladOzCohen/EDA_Factory/releases/latest)** — the file called `EDAStudio-Setup-….exe` under *Assets*.
+2. **Double-click it.** If Windows says *"Windows protected your PC"*, click **More info → Run anyway**
+   *(the app isn't signed with a paid certificate, so Windows is just being careful).*
+3. **Next → Install → Finish.** An **EDA Studio** icon appears on your desktop. Double-click it and drop a file onto the window.
 
-1. Build it once: `.\build_portable.ps1` *(needs the Python environment below)*, or copy a finished `portable\EDAStudio` folder.
-2. Double-click **`portable\EDAStudio\EDAStudio.exe`**.
+That's it — no Python, no setup, no admin rights. To remove it: *Windows Settings → Apps → EDA Studio → Uninstall*.
 
-No installer, no admin rights, no Python needed on the target machine. Keep the whole folder together.
-The window uses the Edge WebView2 runtime that ships with Windows 11.
+<details>
+<summary><b>התקנה בעברית</b></summary>
 
-> The first start on a new machine can be slow while security software scans the new files.
+<div dir="rtl">
 
-### Option B — run from source
+1. נכנסים ל-[עמוד ההורדה](https://github.com/EladOzCohen/EDA_Factory/releases/latest) ומורידים את הקובץ **EDAStudio-Setup-….exe** (תחת *Assets*).
+2. לוחצים עליו פעמיים. אם Windows מציג **"Windows protected your PC"** — לוחצים **More info** ואז **Run anyway** (זה קורה כי התוכנה לא חתומה בתעודה בתשלום).
+3. **Next ← Install ← Finish.** אייקון **EDA Studio** יופיע בשולחן העבודה. פותחים אותו וגוררים קובץ נתונים לחלון.
+
+לא צריך Python, לא צריך הרשאות מנהל. להסרה: *הגדרות Windows ← אפליקציות ← EDA Studio ← הסרה*.
+
+</div>
+
+</details>
+
+<details>
+<summary><b>For developers</b> — run from source, build, test</summary>
 
 ```powershell
 python -m venv .venv
@@ -111,13 +130,14 @@ python -m venv .venv
 
 .\.venv\Scripts\python.exe run.py             # desktop window
 .\.venv\Scripts\python.exe run.py --browser   # or your default browser
+.\.venv\Scripts\python.exe -m pytest tests    # tests
+.\build_portable.ps1                           # portable folder -> portable\EDAStudio
 ```
 
-### Run the tests
+**Releasing:** push a version tag (`git tag v1.0.0; git push origin v1.0.0`). GitHub builds the installer in the cloud
+(tests → build → smoke test → installer) and publishes it on the Releases page.
 
-```powershell
-.\.venv\Scripts\python.exe -m pytest tests
-```
+</details>
 
 ## Performance
 
